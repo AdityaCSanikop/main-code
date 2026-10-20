@@ -1,11 +1,103 @@
 
 #include <array>
 #include <cstddef>
+#include <deque>
 #include <iostream>
-#include <queue>
 #include <sstream>
 #include <string>
 #include <unordered_set>
+#include <vector>
+
+// A simulated vehicle (SRS §1.3).
+struct Vehicle {
+    std::string id;
+    std::string type;
+    std::size_t arrivalTick;
+};
+
+// Queue Manager — Data Structure Layer (SADS §2, §4).
+//
+// Owns one FIFO queue per lane and is the only component allowed to change
+// queue contents. Every operation that could corrupt queue state is refused
+// instead of attempted (SADS §10):
+//   - unknown lane ID          -> rejected, nothing changes
+//   - dequeue on empty queue   -> returns false, nothing changes
+//   - vehicle ID already queued -> rejected, so a vehicle is never duplicated
+//
+// Requirements: FR2 (maintain queues), FR5 (entry/exit), FR7 (queue length
+// for congestion), NFR1 (O(1) enqueue/dequeue/length), NFR3 and SR2
+// (no loss, duplication or corruption of vehicles).
+class QueueManager {
+public:
+    explicit QueueManager(std::size_t laneCount) : queues_(laneCount) {}
+
+    std::size_t laneCount() const { return queues_.size(); }
+
+    bool isValidLane(std::size_t laneId) const {
+        return laneId < queues_.size();
+    }
+
+    // Adds the vehicle to the back of the lane's queue.
+    // Returns false (and changes nothing) for an invalid lane or a vehicle
+    // ID that is already waiting in any queue.
+    bool enqueue(std::size_t laneId, const Vehicle& vehicle) {
+        if (!isValidLane(laneId) || queuedIds_.count(vehicle.id) != 0) {
+            return false;
+        }
+
+        queues_[laneId].push_back(vehicle);
+        queuedIds_.insert(vehicle.id);
+        return true;
+    }
+
+    // Removes the front vehicle of the lane's queue and copies it into
+    // `out`. Returns false (and changes nothing) for an invalid lane or an
+    // empty queue.
+    bool dequeue(std::size_t laneId, Vehicle& out) {
+        if (!isValidLane(laneId) || queues_[laneId].empty()) {
+            return false;
+        }
+
+        out = queues_[laneId].front();
+        queues_[laneId].pop_front();
+        queuedIds_.erase(out.id);
+        return true;
+    }
+
+    // Copies the front vehicle into `out` without removing it.
+    // Returns false for an invalid lane or an empty queue.
+    bool peekFront(std::size_t laneId, Vehicle& out) const {
+        if (!isValidLane(laneId) || queues_[laneId].empty()) {
+            return false;
+        }
+
+        out = queues_[laneId].front();
+        return true;
+    }
+
+    // Number of vehicles waiting in the lane (0 for an invalid lane).
+    std::size_t getQueueLength(std::size_t laneId) const {
+        return isValidLane(laneId) ? queues_[laneId].size() : 0;
+    }
+
+    bool isEmpty(std::size_t laneId) const {
+        return getQueueLength(laneId) == 0;
+    }
+
+    // Read-only, front-to-back copy of a lane's queue for display.
+    // The internal storage itself is never exposed (SR2).
+    std::vector<Vehicle> snapshot(std::size_t laneId) const {
+        if (!isValidLane(laneId)) {
+            return {};
+        }
+
+        return {queues_[laneId].begin(), queues_[laneId].end()};
+    }
+
+private:
+    std::vector<std::deque<Vehicle>> queues_;
+    std::unordered_set<std::string> queuedIds_;
+};
 
 enum class SignalState {
     Red,
@@ -13,15 +105,8 @@ enum class SignalState {
     Green
 };
 
-struct Vehicle {
-    std::string id;
-    std::string type;
-    std::size_t arrivalTick;
-};
-
 struct Lane {
     std::string name;
-    std::queue<Vehicle> vehicles;
     SignalState signalState = SignalState::Red;
 };
 
@@ -29,11 +114,12 @@ class TrafficSimulation {
 public:
     TrafficSimulation()
         : lanes_{{
-              {"North", std::queue<Vehicle>{}, SignalState::Green},
-              {"South", std::queue<Vehicle>{}, SignalState::Red},
-              {"East", std::queue<Vehicle>{}, SignalState::Red},
-              {"West", std::queue<Vehicle>{}, SignalState::Red}
-          }} {}
+              {"North", SignalState::Green},
+              {"South", SignalState::Red},
+              {"East", SignalState::Red},
+              {"West", SignalState::Red}
+          }},
+          queues_(lanes_.size()) {}
 
     void run() {
         std::cout << "Traffic Management System (Simulation)\n";
@@ -80,6 +166,7 @@ private:
     }
 
     std::array<Lane, 4> lanes_;
+    QueueManager queues_;
     std::unordered_set<std::string> vehicleIds_;
     std::size_t greenLane_ = 0;
     std::size_t tick_ = 0;
@@ -161,9 +248,14 @@ private:
             return;
         }
 
-        Lane& lane = lanes_[static_cast<std::size_t>(laneNumber - 1)];
+        const std::size_t laneId = static_cast<std::size_t>(laneNumber - 1);
+        const Lane& lane = lanes_[laneId];
 
-        lane.vehicles.push({id, type, tick_});
+        if (!queues_.enqueue(laneId, {id, type, tick_})) {
+            std::cout << "Vehicle could not be queued. Vehicle was not added.\n";
+            return;
+        }
+
         vehicleIds_.insert(id);
         ++vehiclesAdded_;
 
@@ -179,23 +271,19 @@ private:
 
             std::cout << lane.name << " lane"
                       << " [" << signalStateName(lane.signalState) << "]"
-                      << " - " << lane.vehicles.size() << " vehicle(s)";
+                      << " - " << queues_.getQueueLength(i) << " vehicle(s)";
 
-            if (!lane.vehicles.empty()) {
+            if (!queues_.isEmpty(i)) {
                 std::cout << ": ";
 
-                std::queue<Vehicle> waiting = lane.vehicles;
                 bool first = true;
 
-                while (!waiting.empty()) {
+                for (const Vehicle& vehicle : queues_.snapshot(i)) {
                     if (!first) {
                         std::cout << ", ";
                     }
 
-                    std::cout << waiting.front().id
-                              << " (" << waiting.front().type << ')';
-
-                    waiting.pop();
+                    std::cout << vehicle.id << " (" << vehicle.type << ')';
                     first = false;
                 }
             }
@@ -220,13 +308,12 @@ private:
 
         Lane& lane = lanes_[greenLane_];
 
-        if (lane.vehicles.empty()) {
+        Vehicle vehicle;
+
+        if (!queues_.dequeue(greenLane_, vehicle)) {
             std::cout << "Tick " << tick_ << ": " << lane.name
                       << " lane has a green signal but no vehicles to process.\n";
         } else {
-            const Vehicle vehicle = lane.vehicles.front();
-            lane.vehicles.pop();
-
             const std::size_t waitingTime = tick_ - vehicle.arrivalTick;
 
             ++vehiclesProcessed_;
@@ -255,8 +342,10 @@ private:
     }
 };
 
+#ifndef TMS_UNIT_TEST
 int main() {
     TrafficSimulation simulation;
     simulation.run();
     return 0;
 }
+#endif // TMS_UNIT_TEST
