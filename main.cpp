@@ -110,6 +110,63 @@ struct Lane {
     SignalState signalState = SignalState::Red;
 };
 
+// Vehicle Manager — Traffic Management Layer (SADS §4).
+//
+// Creates vehicles and moves them into and out of lane queues according to
+// the traffic rules (FR1, FR5). All queue changes go through the Queue
+// Manager, so its integrity checks (SR2, NFR3) always apply.
+//
+// Traffic rules:
+//   Entry: a valid vehicle may join a lane in any signal state. It always
+//          joins the back of that lane's queue.
+//   Exit:  only the front vehicle of a lane may leave, and only while that
+//          lane's signal is GREEN. On RED or YELLOW it stays queued (TC-04).
+enum class MoveResult {
+    Moved,           // front vehicle left the lane
+    BlockedBySignal, // lane is RED or YELLOW, nothing changed
+    QueueEmpty       // lane is GREEN but has no vehicles, nothing changed
+};
+
+class VehicleManager {
+public:
+    explicit VehicleManager(QueueManager& queues) : queues_(queues) {}
+
+    // Entry rule. Creates the vehicle and adds it to the back of the lane.
+    // Returns false (and changes nothing) for an empty ID or type, an
+    // invalid lane, or an ID that is already queued.
+    bool addVehicle(std::size_t laneId, const std::string& vehicleId,
+                    const std::string& type, std::size_t arrivalTick) {
+        if (vehicleId.empty() || type.empty()) {
+            return false;
+        }
+
+        return queues_.enqueue(laneId, Vehicle{vehicleId, type, arrivalTick});
+    }
+
+    // Exit rule: vehicles may only leave on GREEN.
+    static bool canLeave(SignalState laneSignal) {
+        return laneSignal == SignalState::Green;
+    }
+
+    // Moves the front vehicle out of the lane if the traffic rules allow it.
+    // On MoveResult::Moved, `out` holds the vehicle that left.
+    MoveResult moveVehicle(std::size_t laneId, SignalState laneSignal,
+                           Vehicle& out) {
+        if (!canLeave(laneSignal)) {
+            return MoveResult::BlockedBySignal;
+        }
+
+        if (!queues_.dequeue(laneId, out)) {
+            return MoveResult::QueueEmpty;
+        }
+
+        return MoveResult::Moved;
+    }
+
+private:
+    QueueManager& queues_;
+};
+
 class TrafficSimulation {
 public:
     TrafficSimulation()
@@ -119,7 +176,8 @@ public:
               {"East", SignalState::Red},
               {"West", SignalState::Red}
           }},
-          queues_(lanes_.size()) {}
+          queues_(lanes_.size()),
+          vehicles_(queues_) {}
 
     void run() {
         std::cout << "Traffic Management System (Simulation)\n";
@@ -167,6 +225,7 @@ private:
 
     std::array<Lane, 4> lanes_;
     QueueManager queues_;
+    VehicleManager vehicles_;
     std::unordered_set<std::string> vehicleIds_;
     std::size_t greenLane_ = 0;
     std::size_t tick_ = 0;
@@ -251,7 +310,7 @@ private:
         const std::size_t laneId = static_cast<std::size_t>(laneNumber - 1);
         const Lane& lane = lanes_[laneId];
 
-        if (!queues_.enqueue(laneId, {id, type, tick_})) {
+        if (!vehicles_.addVehicle(laneId, id, type, tick_)) {
             std::cout << "Vehicle could not be queued. Vehicle was not added.\n";
             return;
         }
@@ -309,8 +368,13 @@ private:
         Lane& lane = lanes_[greenLane_];
 
         Vehicle vehicle;
+        const MoveResult result =
+            vehicles_.moveVehicle(greenLane_, lane.signalState, vehicle);
 
-        if (!queues_.dequeue(greenLane_, vehicle)) {
+        if (result == MoveResult::BlockedBySignal) {
+            std::cout << "Tick " << tick_ << ": " << lane.name
+                      << " lane is not green. Vehicles stay queued.\n";
+        } else if (result == MoveResult::QueueEmpty) {
             std::cout << "Tick " << tick_ << ": " << lane.name
                       << " lane has a green signal but no vehicles to process.\n";
         } else {
