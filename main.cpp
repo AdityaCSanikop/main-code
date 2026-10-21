@@ -170,6 +170,9 @@ private:
     std::unordered_set<std::string> vehicleIds_;
     std::size_t greenLane_ = 0;
     std::size_t tick_ = 0;
+    std::size_t greenTicks_ = 0;
+    static constexpr std::size_t GREEN_DURATION_TICKS = 3;
+    
     std::size_t vehiclesAdded_ = 0;
     std::size_t vehiclesProcessed_ = 0;
     std::size_t totalWaitingTime_ = 0;
@@ -303,43 +306,65 @@ private:
                   << " tick(s)\n";
     }
 
-    void advanceSimulation() {
-        ++tick_;
+void advanceSimulation() {
+    ++tick_;
 
-        Lane& lane = lanes_[greenLane_];
+    Lane& lane = lanes_[greenLane_];
 
-        Vehicle vehicle;
-
-        if (!queues_.dequeue(greenLane_, vehicle)) {
-            std::cout << "Tick " << tick_ << ": " << lane.name
-                      << " lane has a green signal but no vehicles to process.\n";
-        } else {
-            const std::size_t waitingTime = tick_ - vehicle.arrivalTick;
-
-            ++vehiclesProcessed_;
-            totalWaitingTime_ += waitingTime;
-
-            std::cout << "Tick " << tick_ << ": vehicle " << vehicle.id
-                      << " (" << vehicle.type << ") moved from the "
-                      << lane.name << " lane after waiting "
-                      << waitingTime << " tick(s).\n";
-        }
-
-        // Transition the active lane from Green to Yellow.
-        lane.signalState = SignalState::Yellow;
-        std::cout << lane.name << " lane signal changed to YELLOW.\n";
-
-        // Complete the transition and activate the next lane.
+    // If the current lane is Yellow, finish its transition.
+    if (lane.signalState == SignalState::Yellow) {
         lane.signalState = SignalState::Red;
 
-        std::cout << lane.name << " lane signal changed to RED.\n";
+        std::cout << lane.name
+                  << " lane signal changed to RED.\n";
 
+        // Activate the next lane.
         greenLane_ = (greenLane_ + 1) % lanes_.size();
-        lanes_[greenLane_].signalState = SignalState::Green;
 
-        std::cout << "Signal changed to " << lanes_[greenLane_].name
+        lanes_[greenLane_].signalState = SignalState::Green;
+        greenTicks_ = 0;
+
+        std::cout << "Signal changed to "
+                  << lanes_[greenLane_].name
                   << " lane (GREEN).\n";
+
+        return;
     }
+
+    // Process a vehicle only when the current lane is Green.
+    Vehicle vehicle;
+
+    if (!queues_.dequeue(greenLane_, vehicle)) {
+        std::cout << "Tick " << tick_ << ": "
+                  << lane.name
+                  << " lane has a green signal but no vehicles to process.\n";
+    } else {
+        const std::size_t waitingTime =
+            tick_ - vehicle.arrivalTick;
+
+        ++vehiclesProcessed_;
+        totalWaitingTime_ += waitingTime;
+
+        std::cout << "Tick " << tick_
+                  << ": vehicle " << vehicle.id
+                  << " (" << vehicle.type
+                  << ") moved from the "
+                  << lane.name
+                  << " lane after waiting "
+                  << waitingTime << " tick(s).\n";
+    }
+
+    // Count how long this lane has been Green.
+    ++greenTicks_;
+
+    // Change to Yellow after the Green duration is complete.
+    if (greenTicks_ >= GREEN_DURATION_TICKS) {
+        lane.signalState = SignalState::Yellow;
+
+        std::cout << lane.name
+                  << " lane signal changed to YELLOW.\n";
+    }
+}
 };
 
 #ifndef TMS_UNIT_TEST
