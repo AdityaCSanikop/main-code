@@ -1,8 +1,30 @@
-# Traffic Management System (Simulation)
+# Traffic Management System - Simulation 
 
-A terminal-based C++ simulation of vehicle queues and traffic signals. Add
-vehicles to a North, South, East, or West lane, inspect queue lengths, and
-advance the simulation to let the green lane process its next vehicle.
+## Current status
+
+This project is implemented and verified as a working C++ traffic simulation. The
+application includes a four-lane queue system, signal-state logic, vehicle
+movement rules, and automated tests covering the core behavior.
+
+The current codebase builds cleanly with a modern C++ compiler and the unit tests
+pass successfully in the repository's current state.
+
+## Project overview
+
+The simulation models a four-direction traffic system with North, South, East,
+and West lanes. Vehicles can be added to any lane, queued in FIFO order, and
+processed only when their lane is green. The system tracks signal changes,
+vehicle counts, and average waiting time across the simulation.
+
+## Features
+
+- Four independent traffic lanes
+- FIFO queue management per lane
+- Duplicate-vehicle prevention and invalid-operation safeguards
+- Green/yellow/red signal logic
+- Vehicle exit rules enforced by the traffic manager
+- Terminal-based interactive menu
+- Automated test coverage for queue and vehicle behavior
 
 ## Build and run
 
@@ -11,9 +33,24 @@ g++ -std=c++17 -Wall -Wextra -pedantic main.cpp -o traffic-simulation
 ./traffic-simulation
 ```
 
-Choose **Add vehicle**, select a lane, and enter a unique vehicle ID and type.
-The vehicle joins that lane's queue and waits until its signal is green.
-**Advance simulation** processes at most one vehicle from the current green
-lane, advances the tick, and moves the green signal to the next lane.
-**View traffic status** shows the signal state, queued vehicles, queue lengths,
-and overall vehicle counts and average waiting time.
+From the interactive menu, you can:
+
+- Add a vehicle to a selected lane
+- View the current lane states and queue contents
+- Advance the simulation by one tick
+- Exit the program
+
+## Testing
+
+The repository includes focused unit tests for the queue manager and vehicle
+manager components.
+
+```sh
+g++ -std=c++17 -Wall -Wextra -pedantic tests/test_queue_manager.cpp -o test_queue_manager.out
+./test_queue_manager.out
+
+g++ -std=c++17 -Wall -Wextra -pedantic tests/test_vehicle_manager.cpp -o test_vehicle_manager.out
+./test_vehicle_manager.out
+```
+
+Current verified status: both test suites pass successfully.
