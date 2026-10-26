@@ -106,7 +106,7 @@ void testInvalidLane() {
     check(allEmpty, "no valid lane was modified");
 }
 
-// NFR3/SR2: the same vehicle cannot be queued twice.
+// NFR3/SR2: the same vehicle cannot be queued twice, including after exit.
 void testNoDuplicates() {
     std::cout << "NFR3 no duplicated vehicles\n";
     QueueManager queues(4);
@@ -116,6 +116,15 @@ void testNoDuplicates() {
     check(!queues.enqueue(3, makeVehicle("D1")), "D1 again in another lane is rejected");
     check(queues.getQueueLength(0) == 1 && queues.getQueueLength(3) == 0,
           "only one copy of D1 exists");
+
+    Vehicle out;
+    check(queues.dequeue(0, out) && out.id == "D1", "D1 leaves the queue once");
+    check(!queues.enqueue(3, makeVehicle("D1")),
+          "a departed vehicle ID cannot be added again");
+    check(queues.getQueueLength(0) == 0 && queues.getQueueLength(3) == 0,
+          "rejecting a departed ID does not change any queue");
+    check(!queues.enqueue(0, Vehicle{"", "car", 0}),
+          "a vehicle with an empty ID is rejected");
 }
 
 } // namespace

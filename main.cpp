@@ -22,7 +22,7 @@ struct Vehicle {
 // instead of attempted (SADS §10):
 //   - unknown lane ID          -> rejected, nothing changes
 //   - dequeue on empty queue   -> returns false, nothing changes
-//   - vehicle ID already queued -> rejected, so a vehicle is never duplicated
+//   - vehicle ID already used   -> rejected, so a vehicle is never duplicated
 //
 // Requirements: FR2 (maintain queues), FR5 (entry/exit), FR7 (queue length
 // for congestion), NFR1 (O(1) enqueue/dequeue/length), NFR3 and SR2
@@ -38,15 +38,16 @@ public:
     }
 
     // Adds the vehicle to the back of the lane's queue.
-    // Returns false (and changes nothing) for an invalid lane or a vehicle
-    // ID that is already waiting in any queue.
+    // Returns false (and changes nothing) for an invalid lane, an empty ID,
+    // or a vehicle ID that has already been admitted to the system.
     bool enqueue(std::size_t laneId, const Vehicle& vehicle) {
-        if (!isValidLane(laneId) || queuedIds_.count(vehicle.id) != 0) {
+        if (!isValidLane(laneId) || vehicle.id.empty() ||
+            vehicleIds_.count(vehicle.id) != 0) {
             return false;
         }
 
         queues_[laneId].push_back(vehicle);
-        queuedIds_.insert(vehicle.id);
+        vehicleIds_.insert(vehicle.id);
         return true;
     }
 
@@ -60,7 +61,6 @@ public:
 
         out = queues_[laneId].front();
         queues_[laneId].pop_front();
-        queuedIds_.erase(out.id);
         return true;
     }
 
@@ -96,7 +96,7 @@ public:
 
 private:
     std::vector<std::deque<Vehicle>> queues_;
-    std::unordered_set<std::string> queuedIds_;
+    std::unordered_set<std::string> vehicleIds_;
 };
 
 enum class SignalState {
