@@ -326,44 +326,62 @@ private:
     }
 
     void showStatus() const {
-        std::cout << "\nTraffic status at tick " << tick_ << ":\n";
+    std::cout << "\n";
+    std::cout << "========================================\n";
+    std::cout << "          TRAFFIC STATUS REPORT         \n";
+    std::cout << "========================================\n";
+    std::cout << "Simulation Tick: " << tick_ << "\n";
 
-        for (std::size_t i = 0; i < lanes_.size(); ++i) {
-            const Lane& lane = lanes_[i];
+    for (std::size_t i = 0; i < lanes_.size(); ++i) {
+        const Lane& lane = lanes_[i];
 
-            std::cout << lane.name << " lane"
-                      << " [" << signalStateName(lane.signalState) << "]"
-                      << " - " << queues_.getQueueLength(i) << " vehicle(s)";
+        std::cout << "\n----------------------------------------\n";
+        std::cout << "LANE: " << lane.name << "\n";
+        std::cout << "----------------------------------------\n";
 
-            if (!queues_.isEmpty(i)) {
-                std::cout << ": ";
+        std::cout << "Signal State : "
+                  << signalStateName(lane.signalState) << "\n";
 
-                bool first = true;
+        const std::size_t queueLength = queues_.getQueueLength(i);
+        std::cout << "Vehicles     : " << queueLength << "\n";
+        std::cout << "Queue        : ";
 
-                for (const Vehicle& vehicle : queues_.snapshot(i)) {
-                    if (!first) {
-                        std::cout << ", ";
-                    }
+        if (queues_.isEmpty(i)) {
+            std::cout << "Empty";
+        } else {
+            bool first = true;
 
-                    std::cout << vehicle.id << " (" << vehicle.type << ')';
-                    first = false;
+            for (const Vehicle& vehicle : queues_.snapshot(i)) {
+                if (!first) {
+                    std::cout << " -> ";
                 }
-            }
 
-            std::cout << '\n';
+                std::cout << vehicle.id << " (" << vehicle.type << ")";
+                first = false;
+            }
         }
 
-        const double averageWaitingTime =
-            vehiclesProcessed_ == 0
-                ? 0.0
-                : static_cast<double>(totalWaitingTime_) /
-                      vehiclesProcessed_;
-
-        std::cout << "Vehicles added: " << vehiclesAdded_
-                  << " | Vehicles processed: " << vehiclesProcessed_
-                  << " | Average waiting time: " << averageWaitingTime
-                  << " tick(s)\n";
+        std::cout << "\n";
     }
+
+    const double averageWaitingTime =
+        vehiclesProcessed_ == 0
+            ? 0.0
+            : static_cast<double>(totalWaitingTime_) /
+                  vehiclesProcessed_;
+
+    std::cout << "\n";
+    std::cout << "========================================\n";
+    std::cout << "          TRAFFIC STATISTICS            \n";
+    std::cout << "========================================\n";
+    std::cout << "Total vehicles added     : "
+              << vehiclesAdded_ << "\n";
+    std::cout << "Total vehicles processed : "
+              << vehiclesProcessed_ << "\n";
+    std::cout << "Average waiting time     : "
+              << averageWaitingTime << " tick(s)\n";
+    std::cout << "========================================\n";
+}
 
 void advanceSimulation() {
     ++tick_;
