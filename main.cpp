@@ -343,6 +343,19 @@ private:
                   << signalStateName(lane.signalState) << "\n";
 
         const std::size_t queueLength = queues_.getQueueLength(i);
+        // Determine traffic congestion level for this lane.
+        std::string trafficLevel;
+
+        if (queueLength <= 2) {
+            trafficLevel = "LOW";
+        } else if (queueLength <= 5) {
+            trafficLevel = "MEDIUM";
+        } else {
+            trafficLevel = "HIGH";
+        }
+
+std::cout << "Traffic Level: "
+          << trafficLevel << "\n";
         std::cout << "Vehicles     : " << queueLength << "\n";
         std::cout << "Queue        : ";
 
