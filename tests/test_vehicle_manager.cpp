@@ -47,6 +47,8 @@ void testRejectedEntry() {
 
     check(!vehicles.addVehicle(0, "", "car", 0), "empty vehicle ID is rejected");
     check(!vehicles.addVehicle(0, "V1", "", 0), "empty vehicle type is rejected");
+    check(!vehicles.addVehicle(0, "   ", "car", 0), "blank (spaces only) vehicle ID is rejected");
+    check(!vehicles.addVehicle(0, "V1", " \t ", 0), "blank (spaces only) vehicle type is rejected");
     check(!vehicles.addVehicle(7, "V1", "car", 0), "invalid lane is rejected");
 
     vehicles.addVehicle(0, "V1", "car", 0);

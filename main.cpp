@@ -105,6 +105,20 @@ enum class SignalState {
     Green
 };
 
+// Returns the text without leading/trailing spaces, tabs or line endings.
+// Used so that input made only of spaces is treated as empty (SR1).
+inline std::string trimmed(const std::string& text) {
+    const char* const whitespace = " \t\r\n";
+    const std::size_t first = text.find_first_not_of(whitespace);
+
+    if (first == std::string::npos) {
+        return "";
+    }
+
+    const std::size_t last = text.find_last_not_of(whitespace);
+    return text.substr(first, last - first + 1);
+}
+
 struct Lane {
     std::string name;
     SignalState signalState = SignalState::Red;
@@ -136,7 +150,7 @@ public:
     // invalid lane, or an ID that is already queued.
     bool addVehicle(std::size_t laneId, const std::string& vehicleId,
                     const std::string& type, std::size_t arrivalTick) {
-        if (vehicleId.empty() || type.empty()) {
+        if (trimmed(vehicleId).empty() || trimmed(type).empty()) {
             return false;
         }
 
@@ -287,6 +301,8 @@ private:
             return;
         }
 
+        id = trimmed(id);
+
         if (id.empty()) {
             std::cout << "Vehicle ID cannot be empty. Vehicle was not added.\n";
             return;
@@ -304,6 +320,8 @@ private:
         if (!std::getline(std::cin, type)) {
             return;
         }
+
+        type = trimmed(type);
 
         if (type.empty()) {
             std::cout << "Vehicle type cannot be empty. Vehicle was not added.\n";
