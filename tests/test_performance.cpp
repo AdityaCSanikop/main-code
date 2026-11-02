@@ -1,8 +1,7 @@
 // Performance tests for NFR1 / TC-09 (issue #9).
 // Build and run from the repo root:
-//   g++ -std=c++14 -O2 -Wall -Wextra tests/test_performance.cpp -o test_performance.exe
-//   .\test_performance.exe        (Windows)
-//   ./test_performance.exe        (Linux / macOS)
+//   g++ -std=c++17 -O2 -Wall -Wextra -pedantic tests/test_performance.cpp -o test_performance.out
+//   ./test_performance.out
 //
 // TC-09 sets no response-time limit (the SRS does not define one), so these
 // tests pass on completion and correctness: no crash, hang, lost vehicle or
@@ -152,10 +151,12 @@ void testSimulationWorkload() {
 
     const std::string log = output.str();
     const std::string expectedTotals =
-        "Vehicles added: " + std::to_string(vehicleCount) +
-        " | Vehicles processed: " + std::to_string(vehicleCount);
+        "Total vehicles added     : " + std::to_string(vehicleCount) +
+        "\n" +
+        "Total vehicles processed : " + std::to_string(vehicleCount);
 
-    const std::size_t lastStatus = log.rfind("Traffic status at tick");
+    const std::size_t lastStatus = log.rfind("========================================\n"
+        "          TRAFFIC STATUS REPORT");
     const std::string finalStatus =
         lastStatus == std::string::npos ? "" : log.substr(lastStatus);
 
@@ -166,8 +167,8 @@ void testSimulationWorkload() {
           "every vehicle was accepted");
     check(finalStatus.find(expectedTotals) != std::string::npos,
           "final statistics show all vehicles added and processed");
-    check(finalStatus.find("North lane [") != std::string::npos &&
-              finalStatus.find(": PV") == std::string::npos,
+    check(finalStatus.find("Vehicles     : 0") != std::string::npos &&
+              finalStatus.find("Queue        : Empty") != std::string::npos,
           "every lane is empty at the end");
     check(log.find("YELLOW") != std::string::npos &&
               log.find("RED") != std::string::npos,

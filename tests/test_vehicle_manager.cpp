@@ -1,8 +1,7 @@
 // Unit tests for the Vehicle Manager (issue #5).
 // Build and run from the repo root:
-//   g++ -std=c++14 -Wall -Wextra tests/test_vehicle_manager.cpp -o test_vehicle_manager.exe
-//   .\test_vehicle_manager.exe        (Windows)
-//   ./test_vehicle_manager.exe        (Linux / macOS)
+//   g++ -std=c++17 -Wall -Wextra -pedantic tests/test_vehicle_manager.cpp -o test_vehicle_manager.out
+//   ./test_vehicle_manager.out
 
 #include <iostream>
 #include <string>

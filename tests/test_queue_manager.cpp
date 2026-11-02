@@ -1,6 +1,6 @@
 // Unit tests for the Queue Manager (issue #2).
 // Build and run from the repo root:
-//   g++ -std=c++14 -Wall -Wextra tests/test_queue_manager.cpp -o test_queue_manager.out
+//   g++ -std=c++17 -Wall -Wextra -pedantic tests/test_queue_manager.cpp -o test_queue_manager.out
 //   ./test_queue_manager.out
 
 #include <iostream>
