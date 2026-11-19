@@ -28,6 +28,7 @@ The project simulates traffic flow for four lanes: North, South, East, and West.
 │   ├── test_queue_manager.cpp  # Queue manager validation tests
 │   ├── test_vehicle_manager.cpp # Vehicle manager validation tests
 │   └── test_performance.cpp    # Performance and end-to-end checks
+├── web-ui/index.html           # Browser UI for the simulation (see "Web UI" below)
 ├── sprint1 outputs/            # Sprint 1 deliverables and artifacts
 ├── sprint2 outputs/            # Sprint 2 deliverables and artifacts
 ├── test_queue_manager.out      # Built queue test binary
@@ -87,6 +88,16 @@ g++ -std=c++17 -Wall -Wextra -pedantic tests/test_vehicle_manager.cpp -o test_ve
 ```
 
 Current verified status: the test suites pass successfully with the current implementation.
+
+## Web UI
+
+`web-ui/index.html` is a single-file browser front end for the simulation. It needs no build step or install.
+
+- **Open it:** double-click `web-ui/index.html`, or serve the folder (`python -m http.server 8765 --directory web-ui`) and visit `http://localhost:8765`.
+- **Use it:** add vehicles to a lane, advance one tick (or press Space), or auto-run. The intersection, lane cards, statistics and event log update as the simulation runs. The congestion threshold (default 5) can be changed in the statistics card.
+- **Self-test:** click *Run self-tests* at the bottom of the page, or open `index.html?test`, to run browser versions of test cases TC-01 to TC-12 from the test plan.
+
+The UI mirrors the C++ core instead of calling it. Its JavaScript `QueueManager`, `VehicleManager`, signal cycle and validation follow `main.cpp`: the same green duration (3 ticks), N→S→E→W order, exit-on-green rule, unique vehicle IDs, LOW/MEDIUM/HIGH levels and the same log and error messages. On top of that, the UI adds a configurable congestion threshold (congested when queue length > threshold), per-lane statistics, an integrity check (added = processed + waiting) and length limits on input (ID ≤ 12, type ≤ 20 characters). If you change behaviour in `main.cpp`, update `web-ui/index.html` to match.
 
 ## Notes
 

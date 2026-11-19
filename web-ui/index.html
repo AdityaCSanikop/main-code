@@ -1,0 +1,1116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traffic Control Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f5f7; --surface: #ffffff; --surface-2: #f0f2f5; --text: #15181e; --muted: #5d6573;
+  --border: #e1e4ea; --accent: #2f6fed; --accent-text: #ffffff;
+  --grass: #cfe3c4; --road: #4a4f58; --road-line: #f3f3f3; --box: #555b65;
+  --red: #e5484d; --yellow: #f5b417; --green: #2fae5f; --lamp-off: #2a2d33; --housing: #1b1d21;
+  --low-bg: #e3f6ea; --low-fg: #1d7a43; --med-bg: #fff3d6; --med-fg: #8a5a00; --high-bg: #fde4e4; --high-fg: #b42328;
+  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  --move: .55s;
+  --ease: cubic-bezier(.33, 1, .68, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --surface: #181b21; --surface-2: #20242c; --text: #e8eaee; --muted: #9aa2b1;
+    --border: #2a2f39; --accent: #5b8cff; --accent-text: #0b0d12;
+    --grass: #1d2a1e; --road: #34383f; --road-line: #c9ccd2; --box: #3c4048;
+    --lamp-off: #2c2f35; --housing: #0a0b0d;
+    --low-bg: #12301f; --low-fg: #6fdc9b; --med-bg: #3a2c0a; --med-fg: #f5c45a; --high-bg: #3b1416; --high-fg: #ff8a8e;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --surface: #181b21; --surface-2: #20242c; --text: #e8eaee; --muted: #9aa2b1;
+  --border: #2a2f39; --accent: #5b8cff; --accent-text: #0b0d12;
+  --grass: #1d2a1e; --road: #34383f; --road-line: #c9ccd2; --box: #3c4048;
+  --lamp-off: #2c2f35; --housing: #0a0b0d;
+  --low-bg: #12301f; --low-fg: #6fdc9b; --med-bg: #3a2c0a; --med-fg: #f5c45a; --high-bg: #3b1416; --high-fg: #ff8a8e;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 Inter, system-ui, sans-serif; transition: background-color .3s, color .3s; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 20px 16px 40px; }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: inherit; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  padding: 8px 14px; border-radius: 8px; cursor: pointer; transition: background .2s, border-color .2s, transform .12s, filter .2s; }
+button:hover { background: var(--surface-2); }
+button:active { transform: scale(.96); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button.primary:hover { filter: brightness(1.08); }
+button.small { padding: 5px 10px; font-size: 12px; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.speed { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.speed input { width: 90px; accent-color: var(--accent); }
+.grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); transition: background-color .3s, border-color .3s, box-shadow .45s; }
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.card-head h2 { margin: 0; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+svg#junction { width: 100%; height: auto; display: block; border-radius: 10px; }
+.junction-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.cycle { display: flex; gap: 6px; align-items: center; }
+.cycle .c { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; font-weight: 600; transition: background-color .4s, color .4s, border-color .4s; }
+.cycle .c.on-g { background: var(--green); color: #fff; border-color: var(--green); }
+.cycle .c.on-y { background: var(--yellow); color: #1a1a1a; border-color: var(--yellow); }
+.phase-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; min-width: 210px; }
+.bar { width: 100%; height: 5px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--green); border-radius: 999px; transition: width var(--move) var(--ease), background-color .4s; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend i.dot { border-radius: 50%; }
+.legend i.cong { background: transparent; border: 2px dashed var(--red); }
+form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 500; }
+input, select { font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; transition: border-color .2s, background-color .3s; }
+input[aria-invalid="true"] { border-color: var(--red); }
+.lane-pick { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.lane-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.lane-pick label { flex-direction: row; justify-content: center; padding: 8px 4px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--text); font-size: 13px; font-weight: 600; transition: background-color .2s, border-color .2s; }
+.lane-pick input:checked + label { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.lane-pick input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+.form-actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+.form-actions button { flex: 1; }
+.msg { grid-column: 1 / -1; font-size: 13px; min-height: 20px; }
+.msg.err { color: var(--high-fg); } .msg.ok { color: var(--low-fg); }
+.msg.flash { animation: flash .35s var(--ease); }
+@keyframes flash { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.hint { font-size: 11px; color: var(--muted); font-weight: 400; }
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.stat { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; transition: background-color .3s; }
+.stat .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.settings { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.settings label { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+.settings input { width: 72px; padding: 6px 8px; }
+.integrity { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; transition: background-color .3s, color .3s; }
+.integrity::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.integrity.ok { background: var(--low-bg); color: var(--low-fg); }
+.integrity.bad { background: var(--high-bg); color: var(--high-fg); }
+.lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+@media (max-width: 1000px) { .lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .lanes { grid-template-columns: 1fr; } }
+.lane { border-top: 3px solid var(--border); transition: border-color .45s, box-shadow .45s; }
+.lane.g { border-top-color: var(--green); box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 25%, transparent), var(--shadow); }
+.lane.y { border-top-color: var(--yellow); } .lane.r { border-top-color: var(--red); }
+.lane.congested { box-shadow: 0 0 0 2px color-mix(in srgb, var(--red) 55%, transparent), var(--shadow); }
+.lane-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.lane-head b { font-size: 16px; }
+.pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; letter-spacing: .04em; transition: background-color .4s, color .4s, opacity .3s, transform .3s var(--ease); }
+.sig-g { background: var(--green); color: #fff; } .sig-y { background: var(--yellow); color: #1a1a1a; } .sig-r { background: var(--red); color: #fff; }
+.lvl-LOW { background: var(--low-bg); color: var(--low-fg); } .lvl-MEDIUM { background: var(--med-bg); color: var(--med-fg); } .lvl-HIGH { background: var(--high-bg); color: var(--high-fg); }
+.cong-badge { background: var(--red); color: #fff; }
+.cong-badge.off { opacity: 0; transform: scale(.85); }
+.lane-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); margin: 4px 0; gap: 6px; }
+.lane-row .pills { display: flex; gap: 4px; }
+.lane-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin: 8px 0 4px; font-size: 12px; color: var(--muted); }
+.lane-stats b { color: var(--text); font-variant-numeric: tabular-nums; float: right; }
+.queue { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; min-height: 26px; align-content: flex-start; }
+.more { font-size: 12px; color: var(--muted); margin-top: 4px; min-height: 16px; }
+.chip { font: 500 12px 'JetBrains Mono', monospace; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px;
+  transition: border-color .3s, opacity .25s, transform .25s var(--ease); animation: chipIn .3s var(--ease); }
+.chip.front { border-color: var(--accent); }
+.chip.out { opacity: 0; transform: translateX(-8px) scale(.9); }
+@keyframes chipIn { from { opacity: 0; transform: translateY(4px) scale(.92); } to { opacity: 1; transform: none; } }
+.empty { color: var(--muted); font-size: 12px; font-style: italic; animation: chipIn .3s var(--ease); }
+.log { font: 12.5px/1.55 'JetBrains Mono', monospace; max-height: 260px; overflow: auto; margin: 0; padding: 0; list-style: none; }
+.log li { padding: 3px 0; border-bottom: 1px dashed var(--border); animation: logIn .3s var(--ease); }
+@keyframes logIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.log li .t { color: var(--muted); margin-right: 8px; }
+.log .move { color: var(--low-fg); } .log .sig { color: var(--med-fg); } .log .err { color: var(--high-fg); } .log .add { color: var(--accent); } .log .cong { color: var(--high-fg); font-weight: 600; }
+.kbd { font: 11px 'JetBrains Mono', monospace; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; color: var(--muted); }
+.tests { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tests th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.tests td { padding: 7px 8px; border-bottom: 1px dashed var(--border); vertical-align: top; }
+.tests td.id { font: 600 12px 'JetBrains Mono', monospace; white-space: nowrap; }
+.tests td.req { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.tests td.det { color: var(--muted); font-size: 12px; }
+.tests tr { animation: logIn .3s var(--ease); }
+.res-PASS { background: var(--low-bg); color: var(--low-fg); } .res-FAIL { background: var(--high-bg); color: var(--high-fg); }
+.test-sum { font-weight: 600; font-size: 13px; }
+.table-scroll { overflow-x: auto; }
+
+/* SVG motion */
+.car { transition: transform var(--move) var(--ease), opacity .35s ease; }
+.car.leaving { transition: transform calc(var(--move) * 1.7) cubic-bezier(.45, 0, .8, .6), opacity calc(var(--move) * 1.7) ease-in; }
+.lamp { fill: var(--lamp-off); transition: fill .35s ease, filter .35s ease; }
+.lamp.on.r { fill: var(--red); filter: drop-shadow(0 0 5px var(--red)); }
+.lamp.on.y { fill: var(--yellow); filter: drop-shadow(0 0 5px var(--yellow)); }
+.lamp.on.g { fill: var(--green); filter: drop-shadow(0 0 5px var(--green)); }
+.hl { opacity: 0; transition: opacity .5s ease, fill .5s ease; }
+.hl.on { opacity: .14; }
+.congzone { fill: var(--red); fill-opacity: .12; stroke: var(--red); stroke-width: 3; stroke-dasharray: 8 6; opacity: 0; transition: opacity .45s ease; }
+.congzone.on { opacity: 1; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { stroke-opacity: 1; } 50% { stroke-opacity: .35; } }
+.badge { transition: opacity .3s ease; }
+.svg-bg { transition: fill .3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Traffic Management System</h1>
+      <div class="sub">Four-lane signal simulation · FIFO lane queues · Green <span id="greenDur">3</span> ticks → Yellow → next lane</div>
+    </div>
+    <div class="toolbar">
+      <button class="primary" id="btnTick" title="Space">Advance tick ▸</button>
+      <button id="btnAuto">▶ Auto-run</button>
+      <div class="speed">Speed <input type="range" id="speed" min="100" max="2000" step="100" value="900" aria-label="Auto-run tick interval"><span id="speedLbl">0.9s</span></div>
+      <button id="btnSample">+ Sample traffic</button>
+      <button id="btnReset">Reset</button>
+      <button id="btnTheme" aria-label="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Intersection</h2>
+      <svg id="junction" viewBox="0 0 600 600" role="img" aria-label="Intersection view"></svg>
+      <div class="junction-meta">
+        <div class="cycle" id="cycle"></div>
+        <div class="phase-wrap">
+          <div id="phase"></div>
+          <div class="bar"><i id="phaseBar"></i></div>
+        </div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+
+    <div class="stack">
+      <div class="card">
+        <h2>Add vehicle</h2>
+        <form id="addForm" autocomplete="off" novalidate>
+          <div class="lane-pick" id="lanePick" role="radiogroup" aria-label="Lane"></div>
+          <label>Vehicle ID <span class="hint">max 12 chars, unique</span><input id="vid" maxlength="12" placeholder="e.g. V001"></label>
+          <label>Vehicle type <span class="hint">max 20 chars</span>
+            <input id="vtype" list="types" maxlength="20" placeholder="e.g. Car">
+            <datalist id="types"><option>Car</option><option>Bus</option><option>Truck</option><option>Bike</option><option>Auto</option><option>Ambulance</option></datalist>
+          </label>
+          <div class="form-actions">
+            <button class="primary" type="submit">Add to queue</button>
+            <button type="button" id="btnRandom">Random vehicle</button>
+            <button type="button" id="btnBulk" title="Adds 1000 random vehicles (NFR1 load)">+1000</button>
+          </div>
+          <div class="msg" id="msg" role="status" aria-live="polite"></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Traffic statistics</h2>
+          <span class="integrity ok" id="integrity" title="added = processed + waiting">Integrity OK</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="v" id="sTick">0</div><div class="k">Simulation tick</div></div>
+          <div class="stat"><div class="v" id="sWaiting">0</div><div class="k">Vehicles waiting</div></div>
+          <div class="stat"><div class="v" id="sAdded">0</div><div class="k">Total vehicles added</div></div>
+          <div class="stat"><div class="v" id="sProc">0</div><div class="k">Total vehicles processed</div></div>
+          <div class="stat" style="grid-column: 1 / -1"><div class="v" id="sAvg">0.00</div><div class="k">Average waiting time (ticks)</div></div>
+        </div>
+        <div class="settings">
+          <label>Congestion threshold
+            <input type="number" id="threshold" min="0" max="999" step="1" value="5">
+          </label>
+          <span class="hint" id="thresholdHint">Congested when queue &gt; 5</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lanes" id="lanes"></div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>Event log <span class="kbd">Space</span> <span style="text-transform:none;letter-spacing:0;font-weight:400">to advance</span></h2>
+    <ul class="log" id="log"></ul>
+  </div>
+
+  <div class="card" style="margin-top:16px" id="testCard">
+    <div class="card-head">
+      <h2>Self-test · TC-01 to TC-12</h2>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="test-sum" id="testSum">Not run yet</span>
+        <button class="small primary" id="btnTests">Run self-tests</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="tests">
+        <thead><tr><th>Case</th><th>Covers</th><th>Objective</th><th>Result</th><th>Details</th></tr></thead>
+        <tbody id="testBody"><tr><td colspan="5" class="det">Runs the test plan against fresh copies of the simulation core. Add <code>?test</code> to the URL to run on load.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Simulation core — mirrors main.cpp and the SADS components.
+   Presentation (UI below) -> SimulationController -> VehicleManager /
+   SignalController / CongestionDetector / StatisticsManager -> QueueManager
+   ===================================================================== */
+const GREEN_DURATION_TICKS = 3;          // main.cpp: GREEN_DURATION_TICKS
+const DEFAULT_CONGESTION_THRESHOLD = 5;  // SRS 2.5: predefined queue-length threshold
+const MAX_ID_LENGTH = 12;
+const MAX_TYPE_LENGTH = 20;
+const LANE_NAMES = ['North', 'South', 'East', 'West'];
+
+// Messages copied verbatim from main.cpp (plus the two length checks the UI adds).
+const MSG = {
+  invalidLane: 'Invalid lane. Vehicle was not added.',
+  emptyId: 'Vehicle ID cannot be empty. Vehicle was not added.',
+  duplicateId: 'That vehicle ID has already been used. Vehicle was not added.',
+  emptyType: 'Vehicle type cannot be empty. Vehicle was not added.',
+  notQueued: 'Vehicle could not be queued. Vehicle was not added.',
+  idTooLong: `Vehicle ID must be ${MAX_ID_LENGTH} characters or fewer. Vehicle was not added.`,
+  typeTooLong: `Vehicle type must be ${MAX_TYPE_LENGTH} characters or fewer. Vehicle was not added.`,
+  added: (id, lane) => `Vehicle ${id} added to the ${lane} lane queue.`,
+  toRed: lane => `${lane} lane signal changed to RED.`,
+  toGreen: lane => `Signal changed to ${lane} lane (GREEN).`,
+  toYellow: lane => `${lane} lane signal changed to YELLOW.`,
+  blocked: (t, lane) => `Tick ${t}: ${lane} lane is not green. Vehicles stay queued.`,
+  emptyGreen: (t, lane) => `Tick ${t}: ${lane} lane has a green signal but no vehicles to process.`,
+  moved: (t, v, lane, w) => `Tick ${t}: vehicle ${v.id} (${v.type}) moved from the ${lane} lane after waiting ${w} tick(s).`,
+  congested: (lane, n, t) => `${lane} lane is CONGESTED: ${n} vehicles waiting (threshold ${t}).`,
+  cleared: (lane, n, t) => `${lane} lane congestion cleared: ${n} vehicles waiting (threshold ${t}).`,
+};
+
+// main.cpp trimmed(): strips spaces, tabs and line endings.
+function trimmed(text) { return String(text ?? '').replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ''); }
+
+// Queue Manager — Data Structure Layer. One FIFO queue per lane, O(1) enqueue/dequeue/length
+// using a head index instead of Array.shift. The only component that changes queue contents.
+class QueueManager {
+  constructor(laneCount) {
+    this.queues = Array.from({ length: laneCount }, () => ({ items: [], head: 0 }));
+    this.vehicleIds = new Set(); // every ID ever admitted (never reused in a run)
+  }
+  laneCount() { return this.queues.length; }
+  isValidLane(l) { return Number.isInteger(l) && l >= 0 && l < this.queues.length; }
+  enqueue(l, vehicle) {
+    // main.cpp: invalid lane, blank (whitespace-only) ID or type, or a used ID is refused.
+    if (!this.isValidLane(l) || !vehicle || !trimmed(vehicle.id) || !trimmed(vehicle.type) ||
+        this.vehicleIds.has(vehicle.id)) return false;
+    this.queues[l].items.push(Object.freeze({ ...vehicle }));
+    this.vehicleIds.add(vehicle.id);
+    return true;
+  }
+  dequeue(l) {
+    if (this.isEmpty(l)) return null;
+    const q = this.queues[l], v = q.items[q.head];
+    q.items[q.head] = undefined;
+    q.head++;
+    if (q.head >= 1024 && q.head * 2 >= q.items.length) { q.items = q.items.slice(q.head); q.head = 0; } // amortised compaction
+    return v;
+  }
+  peekFront(l) { return this.isEmpty(l) ? null : this.queues[l].items[this.queues[l].head]; }
+  getQueueLength(l) { return this.isValidLane(l) ? this.queues[l].items.length - this.queues[l].head : 0; }
+  isEmpty(l) { return this.getQueueLength(l) === 0; }
+  // Read-only front-to-back copy; `limit` keeps large queues cheap to display.
+  snapshot(l, limit = Infinity) {
+    if (!this.isValidLane(l)) return [];
+    const q = this.queues[l];
+    return q.items.slice(q.head, Math.min(q.items.length, q.head + limit));
+  }
+}
+
+// Vehicle Manager — entry rule (any signal, back of queue) and exit rule (front only, GREEN only).
+const MoveResult = Object.freeze({ Moved: 'Moved', BlockedBySignal: 'BlockedBySignal', QueueEmpty: 'QueueEmpty' });
+class VehicleManager {
+  constructor(queues) { this.queues = queues; }
+  addVehicle(laneId, vehicleId, type, arrivalTick) {
+    if (!trimmed(vehicleId) || !trimmed(type)) return false;
+    return this.queues.enqueue(laneId, { id: vehicleId, type, arrivalTick });
+  }
+  static canLeave(signal) { return signal === 'GREEN'; }
+  moveVehicle(laneId, signal) {
+    if (!VehicleManager.canLeave(signal)) return { result: MoveResult.BlockedBySignal };
+    const v = this.queues.dequeue(laneId);
+    return v ? { result: MoveResult.Moved, vehicle: v } : { result: MoveResult.QueueEmpty };
+  }
+}
+
+// Signal Controller — Red/Yellow/Green per lane, cycle N -> S -> E -> W (same order as main.cpp).
+class SignalController {
+  constructor(laneCount) {
+    this.states = Array.from({ length: laneCount }, (_, i) => (i === 0 ? 'GREEN' : 'RED'));
+    this.greenLane = 0;
+    this.greenTicks = 0;
+  }
+  getSignalState(l) { return this.states[l]; }
+  isYellow() { return this.states[this.greenLane] === 'YELLOW'; }
+  // Yellow lane goes RED; the next lane goes GREEN.
+  completeYellow() {
+    const from = this.greenLane;
+    this.states[from] = 'RED';
+    this.greenLane = (from + 1) % this.states.length;
+    this.states[this.greenLane] = 'GREEN';
+    this.greenTicks = 0;
+    return { from, to: this.greenLane };
+  }
+  // Count a green tick; returns true when the lane turns YELLOW.
+  recordGreenTick() {
+    this.greenTicks++;
+    if (this.greenTicks >= GREEN_DURATION_TICKS) { this.states[this.greenLane] = 'YELLOW'; return true; }
+    return false;
+  }
+}
+
+// Congestion Detector — congested only when queue length is strictly greater than the threshold.
+class CongestionDetector {
+  constructor(queues, threshold) { this.queues = queues; this.threshold = threshold; }
+  detectCongestion(l) { return this.queues.getQueueLength(l) > this.threshold; }
+}
+
+// Statistics Manager — running totals overall and per lane.
+class StatisticsManager {
+  constructor(laneCount) {
+    this.added = 0; this.processed = 0; this.totalWait = 0;
+    this.lanes = Array.from({ length: laneCount }, () => ({ added: 0, processed: 0, totalWait: 0, maxQueue: 0 }));
+  }
+  recordVehicleAdded(l, queueLength) {
+    this.added++; this.lanes[l].added++;
+    if (queueLength > this.lanes[l].maxQueue) this.lanes[l].maxQueue = queueLength;
+  }
+  recordWaitTime(l, wait) {
+    this.processed++; this.totalWait += wait;
+    this.lanes[l].processed++; this.lanes[l].totalWait += wait;
+  }
+  calculateStatistics(queues) {
+    let waiting = 0;
+    const perLane = this.lanes.map((s, i) => {
+      const len = queues.getQueueLength(i); waiting += len;
+      return { added: s.added, processed: s.processed, avgWait: s.processed ? s.totalWait / s.processed : 0, queueLength: len, maxQueue: s.maxQueue };
+    });
+    return { added: this.added, processed: this.processed, waiting, totalWait: this.totalWait,
+      avgWait: this.processed ? this.totalWait / this.processed : 0, perLane };
+  }
+}
+
+// Input validation (SR1/SO2) — runs before anything reaches the Vehicle/Queue Manager.
+const InputValidator = {
+  // Same rule as main.cpp readInteger(): a whole number with nothing else, then 1..laneCount.
+  parseLane(input, laneCount) {
+    let n = NaN;
+    if (typeof input === 'number') n = input;
+    else if (typeof input === 'string' && /^\s*[+-]?\d+\s*$/.test(input)) n = parseInt(input, 10);
+    return Number.isInteger(n) && n >= 1 && n <= laneCount ? n - 1 : -1;
+  },
+  validate(laneInput, idInput, typeInput, queues) {
+    const laneId = this.parseLane(laneInput, queues.laneCount());
+    if (laneId < 0) return { ok: false, error: MSG.invalidLane };
+    const id = trimmed(idInput);
+    if (!id) return { ok: false, error: MSG.emptyId };
+    if (id.length > MAX_ID_LENGTH) return { ok: false, error: MSG.idTooLong };
+    if (queues.vehicleIds.has(id)) return { ok: false, error: MSG.duplicateId };
+    const type = trimmed(typeInput);
+    if (!type) return { ok: false, error: MSG.emptyType };
+    if (type.length > MAX_TYPE_LENGTH) return { ok: false, error: MSG.typeTooLong };
+    return { ok: true, laneId, id, type };
+  },
+};
+
+// Simulation Controller — the mediator; same tick order as main.cpp advanceSimulation().
+class SimulationController {
+  constructor({ threshold = DEFAULT_CONGESTION_THRESHOLD } = {}) {
+    this.names = LANE_NAMES.slice();
+    this.queues = new QueueManager(this.names.length);
+    this.vehicles = new VehicleManager(this.queues);
+    this.signals = new SignalController(this.names.length);
+    this.congestion = new CongestionDetector(this.queues, threshold);
+    this.stats = new StatisticsManager(this.names.length);
+    this.tick = 0;
+    this.congested = this.names.map(() => false);
+    this.listeners = [];
+    this.quietAdds = false;
+  }
+  onEvent(fn) { this.listeners.push(fn); }
+  emit(text, kind, data) { for (const fn of this.listeners) fn(text, kind, data); }
+
+  // laneInput is the 1-based lane number from the menu/form, as in main.cpp.
+  addVehicle(laneInput, idInput, typeInput) {
+    const v = InputValidator.validate(laneInput, idInput, typeInput, this.queues);
+    if (!v.ok) { this.emit(v.error, 'err'); return { ok: false, message: v.error }; }
+    if (!this.vehicles.addVehicle(v.laneId, v.id, v.type, this.tick)) {
+      this.emit(MSG.notQueued, 'err'); return { ok: false, message: MSG.notQueued };
+    }
+    this.stats.recordVehicleAdded(v.laneId, this.queues.getQueueLength(v.laneId));
+    const message = MSG.added(v.id, this.names[v.laneId]);
+    if (!this.quietAdds) this.emit(message, 'add', { lane: v.laneId, id: v.id });
+    this.updateCongestion();
+    return { ok: true, message, laneId: v.laneId, id: v.id };
+  }
+
+  advance() {
+    this.tick++;
+    const s = this.signals, laneId = s.greenLane, name = this.names[laneId];
+    if (s.isYellow()) {
+      const c = s.completeYellow();
+      this.emit(MSG.toRed(this.names[c.from]), 'sig');
+      this.emit(MSG.toGreen(this.names[c.to]), 'sig');
+      this.updateCongestion();
+      return { result: 'SignalChanged', from: c.from, to: c.to };
+    }
+    const r = this.vehicles.moveVehicle(laneId, s.getSignalState(laneId));
+    if (r.result === MoveResult.BlockedBySignal) this.emit(MSG.blocked(this.tick, name), 'err');
+    else if (r.result === MoveResult.QueueEmpty) this.emit(MSG.emptyGreen(this.tick, name), '');
+    else {
+      const wait = this.tick - r.vehicle.arrivalTick;
+      this.stats.recordWaitTime(laneId, wait);
+      this.emit(MSG.moved(this.tick, r.vehicle, name, wait), 'move', { lane: laneId, vehicle: r.vehicle, wait });
+    }
+    if (s.recordGreenTick()) this.emit(MSG.toYellow(name), 'sig');
+    this.updateCongestion();
+    return { ...r, laneId };
+  }
+
+  setThreshold(n) { this.congestion.threshold = n; this.updateCongestion(); }
+
+  // Logs only when a lane crosses the threshold in either direction.
+  updateCongestion() {
+    const t = this.congestion.threshold;
+    for (let i = 0; i < this.names.length; i++) {
+      const now = this.congestion.detectCongestion(i);
+      if (now !== this.congested[i]) {
+        this.congested[i] = now;
+        const n = this.queues.getQueueLength(i);
+        this.emit(now ? MSG.congested(this.names[i], n, t) : MSG.cleared(this.names[i], n, t), 'cong', { lane: i, congested: now });
+      }
+    }
+  }
+
+  // NFR3 / SO1: nothing lost or duplicated.
+  checkIntegrity() {
+    const st = this.stats.calculateStatistics(this.queues);
+    const ok = st.added === st.processed + st.waiting && this.queues.vehicleIds.size === st.added;
+    return { ok, added: st.added, processed: st.processed, waiting: st.waiting, ids: this.queues.vehicleIds.size };
+  }
+
+  // FR6: everything the UI needs for one frame. `limit` caps queue copies for large queues.
+  displayTrafficInfo(limit = Infinity) {
+    const stats = this.stats.calculateStatistics(this.queues);
+    return {
+      tick: this.tick, threshold: this.congestion.threshold,
+      greenLane: this.signals.greenLane, greenTicks: this.signals.greenTicks,
+      lanes: this.names.map((name, i) => {
+        const n = this.queues.getQueueLength(i);
+        return { name, signal: this.signals.getSignalState(i), queueLength: n, queue: this.queues.snapshot(i, limit),
+          level: trafficLevel(n), congested: this.congestion.detectCongestion(i), stats: stats.perLane[i] };
+      }),
+      stats, integrity: this.checkIntegrity(),
+    };
+  }
+
+  // Full state, used by TC-12 to compare runs.
+  getState() {
+    return JSON.stringify({
+      tick: this.tick, signals: this.signals.states, greenLane: this.signals.greenLane, greenTicks: this.signals.greenTicks,
+      queues: this.names.map((_, i) => this.queues.snapshot(i)), ids: [...this.queues.vehicleIds].sort(),
+      stats: this.stats.calculateStatistics(this.queues),
+    });
+  }
+}
+// main.cpp showStatus(): LOW <= 2, MEDIUM <= 5, otherwise HIGH.
+function trafficLevel(n) { return n <= 2 ? 'LOW' : n <= 5 ? 'MEDIUM' : 'HIGH'; }
+
+/* =====================================================================
+   Presentation layer
+   ===================================================================== */
+const TYPE_COLORS = { car: '#4f8cff', bus: '#f59e0b', truck: '#8b5cf6', bike: '#14b8a6', auto: '#eab308', ambulance: '#ef4444' };
+const OTHER_COLOR = '#64748b';
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+const svg = $('junction');
+const CW = 22, CL = 30, GAP = 36, MAXVIS = 5, OFFSCREEN = 8, CHIP_LIMIT = 12;
+let sim;
+
+function slotPos(lane, k) {
+  switch (lane) {
+    case 0: return { x: 264, y: 206 - k * GAP, w: CW, h: CL };   // North approach, heading south
+    case 1: return { x: 314, y: 364 + k * GAP, w: CW, h: CL };   // South approach, heading north
+    case 2: return { x: 364 + k * GAP, y: 264, w: CL, h: CW };   // East approach, heading west
+    case 3: return { x: 206 - k * GAP, y: 314, w: CL, h: CW };   // West approach, heading east
+  }
+}
+const EXIT = [[0, 430], [0, -430], [-430, 0], [430, 0]];
+const APPROACH = [{ x: 252, y: 0, w: 46, h: 246 }, { x: 302, y: 354, w: 46, h: 246 }, { x: 354, y: 252, w: 246, h: 46 }, { x: 0, y: 302, w: 246, h: 46 }];
+function colorFor(type) { return TYPE_COLORS[type.toLowerCase()] || OTHER_COLOR; }
+function short(s) { return s.length > 5 ? s.slice(0, 4) + '…' : s; }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// Static scene is built once; per tick only classes/transforms change (no SVG rebuild, no flicker).
+function buildStatic() {
+  const light = (i, x, y) => `<g id="light${i}"><rect x="${x}" y="${y}" width="18" height="48" rx="5" fill="var(--housing)"/>
+    <circle class="lamp r" cx="${x + 9}" cy="${y + 9}" r="5.5"/><circle class="lamp y" cx="${x + 9}" cy="${y + 24}" r="5.5"/><circle class="lamp g" cx="${x + 9}" cy="${y + 39}" r="5.5"/></g>`;
+  const lbl = (x, y, t) => `<text x="${x}" y="${y}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text)" font-family="Inter,sans-serif" opacity=".75">${t}</text>`;
+  const badges = [0, 1, 2, 3].map(i => {
+    const p = slotPos(i, MAXVIS), cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+    return `<g class="badge" id="badge${i}" opacity="0"><rect x="${cx - 22}" y="${cy - 11}" width="44" height="22" rx="11" fill="#c62828" stroke="rgba(0,0,0,.3)"/>
+      <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Inter,sans-serif"></text></g>`;
+  }).join('');
+  svg.innerHTML = `<rect class="svg-bg" width="600" height="600" fill="var(--grass)"/>
+    <rect x="250" y="0" width="100" height="600" fill="var(--road)"/>
+    <rect x="0" y="250" width="600" height="100" fill="var(--road)"/>
+    <rect x="250" y="250" width="100" height="100" fill="var(--box)"/>
+    <g stroke="var(--road-line)" stroke-width="2" stroke-dasharray="14 12" opacity=".7">
+      <line x1="300" y1="0" x2="300" y2="246"/><line x1="300" y1="354" x2="300" y2="600"/>
+      <line x1="0" y1="300" x2="246" y2="300"/><line x1="354" y1="300" x2="600" y2="300"/></g>
+    <g stroke="var(--road-line)" stroke-width="4">
+      <line x1="252" y1="246" x2="298" y2="246"/><line x1="302" y1="354" x2="348" y2="354"/>
+      <line x1="354" y1="252" x2="354" y2="298"/><line x1="246" y1="302" x2="246" y2="348"/></g>
+    ${APPROACH.map((h, i) => `<rect class="hl" id="hl${i}" x="${h.x}" y="${h.y}" width="${h.w}" height="${h.h}" fill="var(--green)"/>`).join('')}
+    ${APPROACH.map((h, i) => `<rect class="congzone" id="cz${i}" x="${h.x + 2}" y="${h.y + 2}" width="${h.w - 4}" height="${h.h - 4}" rx="4"/>`).join('')}
+    ${light(0, 224, 192)}${light(1, 358, 358)}${light(2, 358, 192)}${light(3, 224, 358)}
+    ${lbl(200, 24, 'NORTH')}${lbl(400, 590, 'SOUTH')}${lbl(560, 236, 'EAST')}${lbl(40, 376, 'WEST')}
+    <g id="cars"></g>${badges}`;
+  $('legend').innerHTML =
+    Object.entries(TYPE_COLORS).map(([k, c]) => `<span><i style="background:${c}"></i>${k[0].toUpperCase() + k.slice(1)}</span>`).join('') +
+    `<span><i style="background:${OTHER_COLOR}"></i>Other</span>` +
+    `<span><i class="dot" style="background:var(--green)"></i>Green: front vehicle leaves</span>` +
+    `<span><i class="dot" style="background:var(--yellow)"></i>Yellow: 1 tick, then next lane</span>` +
+    `<span><i class="dot" style="background:var(--red)"></i>Red: queue holds</span>` +
+    `<span><i class="cong"></i>Congested approach</span>`;
+  $('cycle').innerHTML = LANE_NAMES.map((n, i) => `<span class="c" id="cyc${i}" title="${n}">${n[0]}</span>`).join('<span aria-hidden="true">→</span>');
+  $('greenDur').textContent = GREEN_DURATION_TICKS;
+}
+
+const carEls = new Map(); // vehicle id -> { el, lane }
+function makeCar(v, lane) {
+  const p = slotPos(lane, 0), c = colorFor(v.type);
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('class', 'car');
+  g.innerHTML = `<title>${esc(v.id)} · ${esc(v.type)} · arrived tick ${v.arrivalTick}</title>
+    <rect width="${p.w}" height="${p.h}" rx="5" fill="${c}" stroke="rgba(0,0,0,.35)"/>
+    <rect x="4" y="4" width="${p.w - 8}" height="${p.h - 8}" rx="3" fill="rgba(255,255,255,.22)"/>
+    <text x="${p.w / 2}" y="${p.h / 2 + 3}" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="Inter,sans-serif">${esc(short(v.id))}</text>`;
+  const start = slotPos(lane, OFFSCREEN);
+  g.style.transform = `translate(${start.x}px, ${start.y}px)`;
+  g.style.opacity = '0';
+  $('cars').appendChild(g);
+  g.getBoundingClientRect(); // commit the start position so the entry animates
+  return g;
+}
+function placeCar(el, lane, k) {
+  const p = slotPos(lane, k);
+  el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+  el.style.opacity = '1';
+}
+function driveOff(el, lane) {
+  const p = slotPos(lane, 0), d = EXIT[lane];
+  el.classList.add('leaving');
+  el.style.transform = `translate(${p.x + d[0]}px, ${p.y + d[1]}px)`;
+  el.style.opacity = '0';
+  setTimeout(() => el.remove(), 1400);
+}
+// Only the first MAXVIS vehicles per lane are drawn, so a 10 000-vehicle queue costs the same as 5.
+function syncCars(info) {
+  const alive = new Set();
+  info.lanes.forEach((lane, i) => {
+    lane.queue.slice(0, MAXVIS).forEach((v, k) => {
+      alive.add(v.id);
+      let rec = carEls.get(v.id);
+      if (!rec) { rec = { el: makeCar(v, i), lane: i }; carEls.set(v.id, rec); }
+      placeCar(rec.el, i, k);
+    });
+    const b = $('badge' + i), extra = lane.queueLength - MAXVIS;
+    b.setAttribute('opacity', extra > 0 ? '1' : '0');
+    if (extra > 0) b.querySelector('text').textContent = '+' + extra;
+  });
+  for (const [id, rec] of carEls) if (!alive.has(id)) { driveOff(rec.el, rec.lane); carEls.delete(id); }
+}
+
+let laneEls = [];
+function buildLanes() {
+  $('lanes').innerHTML = LANE_NAMES.map((n, i) => `<div class="card lane" id="lane${i}" data-lane="${n}">
+    <div class="lane-head"><b>${n}</b><span class="pill sig"></span></div>
+    <div class="lane-row"><span>Traffic level</span><span class="pills"><span class="pill cong-badge off">CONGESTED</span><span class="pill lvl"></span></span></div>
+    <div class="lane-stats">
+      <span>Waiting <b class="cnt">0</b></span><span>Max queue <b class="maxq">0</b></span>
+      <span>Processed <b class="proc">0</b></span><span>Avg wait <b class="avg">0.00</b></span>
+    </div>
+    <div class="queue" aria-label="${n} queue, front first"></div>
+    <div class="more"></div></div>`).join('');
+  laneEls = LANE_NAMES.map((_, i) => {
+    const c = $('lane' + i), q = s => c.querySelector(s);
+    return { card: c, sig: q('.sig'), lvl: q('.lvl'), cong: q('.cong-badge'), cnt: q('.cnt'), maxq: q('.maxq'), proc: q('.proc'), avg: q('.avg'), q: q('.queue'), more: q('.more') };
+  });
+}
+function syncQueueChips(box, q) {
+  const want = new Set(q.map(v => v.id));
+  for (const ch of [...box.children]) {
+    if (ch.classList.contains('empty')) { if (q.length) ch.remove(); continue; }
+    if (!want.has(ch.dataset.id) && !ch.classList.contains('out')) { ch.classList.add('out'); setTimeout(() => ch.remove(), 250); }
+  }
+  const have = new Map([...box.querySelectorAll('.chip:not(.out)')].map(c => [c.dataset.id, c]));
+  q.forEach((v, k) => {
+    let ch = have.get(v.id);
+    if (!ch) {
+      ch = document.createElement('span');
+      ch.className = 'chip'; ch.dataset.id = v.id;
+      ch.title = `${v.type}, arrived tick ${v.arrivalTick}`;
+      ch.textContent = `${v.id} · ${v.type}`;
+      box.appendChild(ch);
+    }
+    ch.classList.toggle('front', k === 0);
+  });
+  if (!q.length && !box.querySelector('.empty')) {
+    const e = document.createElement('span'); e.className = 'empty'; e.textContent = 'Empty'; box.appendChild(e);
+  }
+}
+
+function tweenNum(el, to, dec = 0) {
+  const from = parseFloat(el.dataset.v ?? el.textContent) || 0;
+  el.dataset.v = to;
+  cancelAnimationFrame(el._raf);
+  if (from === to || document.hidden) { el.textContent = to.toFixed(dec); return; }
+  const t0 = performance.now(), dur = 350;
+  const step = now => {
+    const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 3);
+    el.textContent = (from + (to - from) * e).toFixed(dec);
+    if (t < 1) el._raf = requestAnimationFrame(step);
+  };
+  el._raf = requestAnimationFrame(step);
+  setTimeout(() => { if (+el.dataset.v === to) { cancelAnimationFrame(el._raf); el.textContent = to.toFixed(dec); } }, dur + 60); // settle even if frames are paused
+}
+
+const SIGC = { GREEN: 'g', YELLOW: 'y', RED: 'r' };
+function render() {
+  const info = sim.displayTrafficInfo(Math.max(CHIP_LIMIT, MAXVIS));
+  info.lanes.forEach((l, i) => {
+    const c = SIGC[l.signal], L = laneEls[i];
+    $('light' + i).querySelectorAll('.lamp').forEach(lamp => lamp.classList.toggle('on', lamp.classList.contains(c)));
+    const hl = $('hl' + i);
+    hl.classList.toggle('on', i === info.greenLane);
+    hl.setAttribute('fill', l.signal === 'YELLOW' ? 'var(--yellow)' : 'var(--green)');
+    $('cz' + i).classList.toggle('on', l.congested);
+    $('cyc' + i).className = 'c' + (i === info.greenLane ? (l.signal === 'GREEN' ? ' on-g' : ' on-y') : '');
+    L.card.className = 'card lane ' + c + (l.congested ? ' congested' : '');
+    L.sig.className = 'pill sig sig-' + c; L.sig.textContent = l.signal;
+    L.lvl.className = 'pill lvl lvl-' + l.level; L.lvl.textContent = l.level;
+    L.cong.classList.toggle('off', !l.congested);
+    L.cong.setAttribute('aria-hidden', String(!l.congested));
+    L.cnt.textContent = l.queueLength; L.maxq.textContent = l.stats.maxQueue;
+    L.proc.textContent = l.stats.processed; L.avg.textContent = l.stats.avgWait.toFixed(2);
+    syncQueueChips(L.q, l.queue.slice(0, CHIP_LIMIT));
+    L.more.textContent = l.queueLength > CHIP_LIMIT ? `+${l.queueLength - CHIP_LIMIT} more in queue` : '';
+  });
+  syncCars(info);
+  const cur = info.lanes[info.greenLane], next = LANE_NAMES[(info.greenLane + 1) % LANE_NAMES.length];
+  $('phase').textContent = cur.signal === 'GREEN'
+    ? `${cur.name} green · tick ${info.greenTicks + 1} of ${GREEN_DURATION_TICKS}`
+    : `${cur.name} yellow · switching to ${next} next tick`;
+  const bar = $('phaseBar');
+  bar.style.width = (cur.signal === 'GREEN' ? (info.greenTicks / (GREEN_DURATION_TICKS + 1)) * 100 : 100) + '%';
+  bar.style.background = cur.signal === 'GREEN' ? 'var(--green)' : 'var(--yellow)';
+  tweenNum($('sTick'), info.tick); tweenNum($('sAdded'), info.stats.added); tweenNum($('sProc'), info.stats.processed);
+  tweenNum($('sWaiting'), info.stats.waiting); tweenNum($('sAvg'), info.stats.avgWait, 2);
+  const ig = info.integrity, ie = $('integrity');
+  ie.className = 'integrity ' + (ig.ok ? 'ok' : 'bad');
+  ie.textContent = ig.ok ? 'Integrity OK' : 'Integrity FAIL';
+  ie.title = `added ${ig.added} = processed ${ig.processed} + waiting ${ig.waiting}` + (ig.ok ? '' : ` (IDs tracked: ${ig.ids})`);
+  $('thresholdHint').textContent = `Congested when queue > ${info.threshold}`;
+  $('vid').placeholder = 'e.g. ' + suggestId();
+}
+
+// Renders are batched to one per animation frame (keeps bulk adds and fast auto-run smooth).
+let renderQueued = false;
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  const run = () => { if (renderQueued) { renderQueued = false; render(); } };
+  requestAnimationFrame(run);
+  setTimeout(run, 100); // fallback: frames are paused while the page is in the background
+}
+
+const logEl = $('log');
+function log(text, cls = '') {
+  const li = document.createElement('li');
+  li.innerHTML = `<span class="t">[t=${sim.tick}]</span><span class="${cls}">${esc(text)}</span>`;
+  logEl.prepend(li);
+  while (logEl.children.length > 200) logEl.lastChild.remove();
+}
+function showMsg(m, cls) {
+  const e = $('msg'); e.textContent = m; e.className = 'msg ' + cls;
+  if (m) { void e.offsetWidth; e.classList.add('flash'); }
+}
+let nextId = 1;
+function suggestId() {
+  let id;
+  while (sim.queues.vehicleIds.has(id = 'V' + String(nextId).padStart(3, '0'))) nextId++;
+  return id;
+}
+
+function newSim() {
+  const t = readThreshold();
+  sim = new SimulationController({ threshold: t ?? DEFAULT_CONGESTION_THRESHOLD });
+  sim.onEvent((text, kind) => log(text, kind));
+  nextId = 1;
+}
+
+// Animation length follows the auto-run speed so fast runs stay fluid.
+let timer = null;
+function setMoveDuration() {
+  const ms = timer ? Math.max(120, Math.min(600, +$('speed').value * 0.65)) : 550;
+  document.documentElement.style.setProperty('--move', ms + 'ms');
+}
+
+// ---- Controls ----
+$('lanePick').innerHTML = LANE_NAMES.map((n, i) => `<input type="radio" name="lane" id="ln${i}" value="${i + 1}" ${i === 0 ? 'checked' : ''}><label for="ln${i}">${n}</label>`).join('');
+$('addForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const checked = document.querySelector('input[name=lane]:checked');
+  const r = sim.addVehicle(checked ? checked.value : '', $('vid').value, $('vtype').value);
+  showMsg(r.message, r.ok ? 'ok' : 'err');
+  $('vid').setAttribute('aria-invalid', String(!r.ok && /ID/.test(r.message)));
+  $('vtype').setAttribute('aria-invalid', String(!r.ok && /type/.test(r.message)));
+  if (r.ok) $('vid').value = '';
+  scheduleRender();
+});
+const RTYPES = ['Car', 'Car', 'Car', 'Bike', 'Bike', 'Bus', 'Truck', 'Auto', 'Ambulance'];
+function randomVehicle() {
+  const r = sim.addVehicle(1 + Math.floor(Math.random() * 4), suggestId(), RTYPES[Math.floor(Math.random() * RTYPES.length)]);
+  showMsg(r.message, r.ok ? 'ok' : 'err');
+  scheduleRender();
+}
+$('btnRandom').onclick = randomVehicle;
+$('btnSample').onclick = () => { for (let i = 0; i < 10; i++) setTimeout(randomVehicle, i * 90); };
+$('btnBulk').onclick = () => {
+  sim.quietAdds = true;
+  let ok = 0;
+  for (let i = 0; i < 1000; i++) if (sim.addVehicle(1 + (i % 4), suggestId(), RTYPES[i % RTYPES.length]).ok) ok++;
+  sim.quietAdds = false;
+  log(`Bulk add: ${ok} vehicles added across all four lanes.`, 'add');
+  showMsg(`${ok} vehicles added.`, 'ok');
+  scheduleRender();
+};
+$('btnTick').onclick = () => { sim.advance(); scheduleRender(); };
+function setAuto(on) {
+  clearInterval(timer); timer = null;
+  if (on) timer = setInterval(() => { sim.advance(); scheduleRender(); }, +$('speed').value);
+  $('btnAuto').textContent = on ? '❚❚ Pause' : '▶ Auto-run';
+  setMoveDuration();
+}
+$('btnAuto').onclick = () => setAuto(!timer);
+$('speed').oninput = () => { $('speedLbl').textContent = ($('speed').value / 1000).toFixed(1) + 's'; if (timer) setAuto(true); };
+function readThreshold() {
+  const raw = $('threshold').value;
+  return /^\d+$/.test(raw) && +raw <= 999 ? +raw : null;
+}
+$('threshold').addEventListener('change', () => {
+  const t = readThreshold();
+  if (t === null) {
+    $('threshold').setAttribute('aria-invalid', 'true');
+    showMsg('Congestion threshold must be a whole number from 0 to 999. Threshold was not changed.', 'err');
+    $('threshold').value = sim.congestion.threshold;
+    return;
+  }
+  $('threshold').setAttribute('aria-invalid', 'false');
+  if (t !== sim.congestion.threshold) { sim.setThreshold(t); log(`Congestion threshold set to ${t}.`, 'sig'); }
+  scheduleRender();
+});
+$('btnReset').onclick = () => {
+  setAuto(false);
+  carEls.forEach(r => r.el.remove()); carEls.clear();
+  laneEls.forEach(L => { L.q.innerHTML = ''; });
+  logEl.innerHTML = ''; showMsg('', '');
+  newSim();
+  log('Simulation reset. North lane starts GREEN.', 'sig');
+  render();
+};
+$('btnTheme').onclick = () => {
+  const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  r.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('tms-theme', r.dataset.theme); } catch (e) {}
+};
+try { const t = localStorage.getItem('tms-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(document.activeElement.tagName)) {
+    e.preventDefault(); sim.advance(); scheduleRender();
+  }
+});
+
+/* =====================================================================
+   Self-test: browser versions of TC-01 … TC-12 (Traffic_Management_System_Test_Plan.pdf).
+   Each case runs on a fresh SimulationController; expected messages are written
+   out literally (copied from main.cpp) so a wording change would fail the test.
+   ===================================================================== */
+function collect(sim) { const out = []; sim.onEvent((t, k, d) => out.push({ t, k, d })); return out; }
+const ids = (s, lane) => s.queues.snapshot(lane).map(v => v.id).join(',');
+const TESTS = [
+  ['TC-01', 'FR1, SR1', 'Add a vehicle to a valid lane with valid input', a => {
+    const s = new SimulationController(), ev = collect(s);
+    const r = s.addVehicle(1, 'V1', 'Car');
+    a(r.ok, 'addVehicle accepted');
+    a(r.message === 'Vehicle V1 added to the North lane queue.', `confirmation text: "${r.message}"`);
+    a(ev.some(e => e.t === 'Vehicle V1 added to the North lane queue.'), 'confirmation logged');
+    a(s.queues.getQueueLength(0) === 1 && s.queues.peekFront(0).id === 'V1', 'V1 is in the North queue');
+    const r2 = s.addVehicle('3', '  T-77  ', '  Truck ');
+    a(r2.ok && s.queues.peekFront(2).id === 'T-77' && s.queues.peekFront(2).type === 'Truck', 'input is trimmed before storing');
+    return 'V1 queued on North; trimmed input stored as "T-77"/"Truck".';
+  }],
+  ['TC-02', 'FR2, FR5', 'Per-lane FIFO queues; vehicles enter and leave in order', a => {
+    const s = new SimulationController();
+    ['V1', 'V2', 'V3'].forEach(id => s.addVehicle(1, id, 'Car'));
+    s.addVehicle(2, 'S1', 'Bus');
+    a(s.queues.getQueueLength(0) === 3, 'length 3 before removal');
+    a(ids(s, 0) === 'V1,V2,V3', 'order V1,V2,V3');
+    a(ids(s, 1) === 'S1' && s.queues.getQueueLength(2) === 0 && s.queues.getQueueLength(3) === 0, 'other lanes kept separate');
+    const r = s.advance();
+    a(r.result === 'Moved' && r.vehicle.id === 'V1', 'V1 dequeued first');
+    a(s.queues.getQueueLength(0) === 2 && ids(s, 0) === 'V2,V3', 'length 2, V2 now at front');
+    a(ids(s, 1) === 'S1', 'South queue untouched');
+    return 'North: V1,V2,V3 → V1 left → V2,V3. South unchanged.';
+  }],
+  ['TC-03', 'FR3, FR4', 'Signals follow the defined cycle (G×3 → Y → next lane)', a => {
+    const s = new SimulationController(), allowed = new Set(['RED', 'YELLOW', 'GREEN']);
+    const legal = { GREEN: ['GREEN', 'YELLOW'], YELLOW: ['YELLOW', 'RED'], RED: ['RED', 'GREEN'] };
+    let prev = s.signals.states.slice(), bad = 0;
+    a(prev.join() === 'GREEN,RED,RED,RED', 'North starts GREEN, others RED');
+    for (let t = 1; t <= 48; t++) {
+      s.advance();
+      const st = s.names.map((_, i) => s.signals.getSignalState(i));
+      const phase = t % 16, lane = Math.floor(phase / 4), want = phase % 4 < GREEN_DURATION_TICKS ? 'GREEN' : 'YELLOW';
+      st.forEach((x, i) => {
+        if (!allowed.has(x)) bad++;
+        if (!legal[prev[i]].includes(x)) bad++;
+        if (x !== (i === lane ? want : 'RED')) bad++;
+      });
+      prev = st;
+    }
+    a(bad === 0, `${bad} unexpected states over 48 ticks`);
+    return '48 ticks: only RED/YELLOW/GREEN; G→Y→R→G; one active lane; order N→S→E→W.';
+  }],
+  ['TC-04', 'FR5, FR3', 'Vehicle stays queued on RED/YELLOW, leaves on GREEN', a => {
+    const s = new SimulationController();
+    s.addVehicle(3, 'E1', 'Car'); // East is RED at tick 0
+    let held = true;
+    for (let t = 1; t <= 8; t++) { s.advance(); if (ids(s, 2) !== 'E1') held = false; }
+    a(held, 'E1 held while East was RED (ticks 1–8)');
+    a(s.signals.getSignalState(2) === 'GREEN', 'East GREEN at tick 8');
+    const r = s.advance();
+    a(r.result === 'Moved' && r.vehicle.id === 'E1' && s.queues.isEmpty(2), 'E1 leaves on first GREEN processing tick (9)');
+    const y = new SimulationController();
+    y.advance(); y.advance(); y.advance();
+    a(y.signals.getSignalState(0) === 'YELLOW', 'North YELLOW after 3 ticks');
+    y.addVehicle(1, 'N1', 'Bike');
+    y.advance();
+    a(ids(y, 0) === 'N1' && y.signals.getSignalState(0) === 'RED', 'vehicle added on YELLOW stays queued');
+    const direct = ['RED', 'YELLOW'].map(sig => y.vehicles.moveVehicle(0, sig).result);
+    a(direct.every(x => x === 'BlockedBySignal') && ids(y, 0) === 'N1', 'moveVehicle on RED/YELLOW blocked, queue unchanged');
+    return 'E1 held 8 ticks, moved at tick 9; N1 held through YELLOW→RED.';
+  }],
+  ['TC-05', 'FR6, NFR2', 'Display shows lane, signal state and waiting count', a => {
+    const s = new SimulationController();
+    s.addVehicle(1, 'A', 'Car'); s.addVehicle(1, 'B', 'Bus'); s.addVehicle(4, 'W', 'Truck');
+    const info = s.displayTrafficInfo();
+    info.lanes.forEach((l, i) => {
+      a(l.name === LANE_NAMES[i], `lane ${i} name`);
+      a(l.signal === s.signals.getSignalState(i), `${l.name} signal matches`);
+      a(l.queueLength === s.queues.getQueueLength(i), `${l.name} count matches`);
+    });
+    a(info.lanes[0].queue.map(v => v.id).join() === 'A,B', 'queue listed front first');
+    // Checklist against the live page too.
+    const live = sim.displayTrafficInfo();
+    let dom = 0;
+    live.lanes.forEach((l, i) => {
+      const c = $('lane' + i);
+      if (c.dataset.lane === l.name && c.querySelector('.sig').textContent === l.signal && +c.querySelector('.cnt').textContent === l.queueLength) dom++;
+    });
+    a(dom === 4, `live lane cards match state (${dom}/4)`);
+    return 'Lane name, signal, count and FIFO order present for all 4 lanes (model + page).';
+  }],
+  ['TC-06', 'FR7', 'Congested only when queue length > threshold (boundary)', a => {
+    const s = new SimulationController({ threshold: 5 }), ev = collect(s);
+    for (let i = 1; i <= 5; i++) s.addVehicle(2, 'C' + i, 'Car');
+    a(s.queues.getQueueLength(1) === 5 && !s.congestion.detectCongestion(1), 'exactly 5 (= threshold) is NOT congested');
+    s.addVehicle(2, 'C6', 'Car');
+    a(s.congestion.detectCongestion(1), '6 (threshold + 1) IS congested');
+    a(ev.some(e => e.t === 'South lane is CONGESTED: 6 vehicles waiting (threshold 5).'), 'congestion logged');
+    s.setThreshold(6);
+    a(!s.congestion.detectCongestion(1) && ev.some(e => e.t === 'South lane congestion cleared: 6 vehicles waiting (threshold 6).'), 'raising threshold clears it');
+    const z = new SimulationController({ threshold: 0 });
+    a(!z.congestion.detectCongestion(0), 'threshold 0: empty lane not congested');
+    z.addVehicle(1, 'Z', 'Car');
+    a(z.congestion.detectCongestion(0), 'threshold 0: one vehicle is congested');
+    return '5/5 not congested, 6/5 congested; enter/clear messages logged; threshold configurable.';
+  }],
+  ['TC-07', 'FR7', 'Lane below threshold is not congested', a => {
+    const s = new SimulationController({ threshold: 5 });
+    s.addVehicle(4, 'L1', 'Car'); s.addVehicle(4, 'L2', 'Car');
+    a(!s.congestion.detectCongestion(3), '2 vehicles < 5 → not congested');
+    a([0, 1, 2].every(i => !s.congestion.detectCongestion(i)), 'empty lanes not congested');
+    a(s.congested.every(c => !c), 'no congestion flags set');
+    return 'West with 2 vehicles and all empty lanes report not congested.';
+  }],
+  ['TC-08', 'FR8', 'Statistics match the added/departed events', a => {
+    const s = new SimulationController(), ev = collect(s);
+    s.addVehicle(1, 'N1', 'Car'); s.addVehicle(1, 'N2', 'Car');
+    s.advance(); s.advance();                // N1 waits 1, N2 waits 2
+    s.addVehicle(2, 'S1', 'Bus');            // arrives at tick 2
+    s.advance(); s.advance(); s.advance();   // tick 3 North yellow, tick 4 South green, tick 5 S1 leaves (wait 3)
+    const st = s.stats.calculateStatistics(s.queues);
+    a(st.added === 3 && st.processed === 3 && st.waiting === 0, `added ${st.added}, processed ${st.processed}, waiting ${st.waiting}`);
+    a(st.processed === ev.filter(e => e.k === 'move').length, 'processed equals number of move events');
+    a(st.avgWait === 2, `average wait ${st.avgWait} (expected 2)`);
+    a(st.perLane[0].processed === 2 && st.perLane[0].avgWait === 1.5 && st.perLane[0].maxQueue === 2, 'North: 2 processed, avg 1.5, max queue 2');
+    a(st.perLane[1].processed === 1 && st.perLane[1].avgWait === 3, 'South: 1 processed, avg 3');
+    a(ev.some(e => e.t === 'Tick 1: vehicle N1 (Car) moved from the North lane after waiting 1 tick(s).'), 'move message matches main.cpp');
+    a(ev.some(e => e.t === 'Tick 3: North lane has a green signal but no vehicles to process.'), 'empty-green message matches main.cpp');
+    return 'Waits 1, 2, 3 → avg 2.00; per-lane processed/avg/max correct.';
+  }],
+  ['TC-09', 'NFR1', 'Large volume completes without hang or loss', a => {
+    const s = new SimulationController(), N = 20000;
+    const order = [[], [], [], []];
+    s.onEvent((t, k, d) => { if (k === 'move') order[d.lane].push(+d.vehicle.id.slice(1)); });
+    const t0 = performance.now();
+    s.quietAdds = true;
+    for (let i = 0; i < N; i++) s.addVehicle(1 + (i % 4), 'P' + i, 'Car');
+    let ticks = 0;
+    while (s.stats.processed < N && ticks < 100000) { s.advance(); ticks++; }
+    const ms = performance.now() - t0;
+    a(s.stats.processed === N, `processed ${s.stats.processed}/${N}`);
+    a([0, 1, 2, 3].every(i => s.queues.isEmpty(i)), 'all lanes empty at end');
+    a(order.every(o => o.every((x, j) => j === 0 || x > o[j - 1])), 'FIFO order kept in every lane');
+    a(s.checkIntegrity().ok, 'integrity holds');
+    const q = new QueueManager(1), t1 = performance.now();
+    for (let i = 0; i < 200000; i++) q.enqueue(0, { id: 'q' + i, type: 'Car', arrivalTick: 0 });
+    let n = 0; while (q.dequeue(0)) n++;
+    const qms = performance.now() - t1;
+    a(n === 200000, 'raw queue: 200 000 enqueue/dequeue');
+    return `${N.toLocaleString()} vehicles in ${ticks.toLocaleString()} ticks, ${ms.toFixed(0)} ms; 200k queue ops ${qms.toFixed(0)} ms (info only).`;
+  }],
+  ['TC-10', 'NFR3, SR2', 'Queue state cannot be lost, duplicated or corrupted', a => {
+    const s = new SimulationController(), q = s.queues;
+    a(q.dequeue(0) === null && q.getQueueLength(0) === 0, 'dequeue on empty queue refused');
+    a(s.vehicles.moveVehicle(0, 'GREEN').result === 'QueueEmpty', 'move on empty GREEN lane → QueueEmpty');
+    a(q.dequeue(9) === null && !q.enqueue(9, { id: 'X', type: 'Car', arrivalTick: 0 }) && !q.enqueue(-1, { id: 'X', type: 'Car', arrivalTick: 0 }), 'invalid lane refused');
+    ['A', 'B', 'C'].forEach(id => s.addVehicle(1, id, 'Car'));
+    a(q.dequeue(0).id === 'A', 'A dequeued');
+    s.addVehicle(1, 'D', 'Car');
+    a(ids(s, 0) === 'B,C,D', 'queue is exactly B,C,D');
+    a(!q.enqueue(0, { id: 'A', type: 'Car', arrivalTick: 0 }) && !q.enqueue(1, { id: 'B', type: 'Car', arrivalTick: 0 }), 'IDs never reused (even after leaving)');
+    a(!q.enqueue(0, { id: ' \t ', type: 'Car', arrivalTick: 0 }) && !q.enqueue(0, { id: 'D2', type: ' \t ', arrivalTick: 0 }) && ids(s, 0) === 'B,C,D',
+      'QueueManager rejects whitespace-only ID or type');
+    const snap = q.snapshot(0); snap.pop(); snap.push({ id: 'HACK' });
+    a(ids(s, 0) === 'B,C,D', 'snapshot copy cannot change the queue');
+    let frozen = false; try { q.peekFront(0).id = 'Z'; } catch (e) { frozen = true; }
+    a(q.peekFront(0).id === 'B', `stored vehicle not mutable from outside${frozen ? '' : ' (silently ignored)'}`);
+    return 'Empty/invalid ops refused; B,C,D intact; no duplicates; read-only copies.';
+  }],
+  ['TC-11', 'SR1, SO2', 'Invalid input rejected with main.cpp messages; nothing changes', a => {
+    const s = new SimulationController();
+    s.addVehicle(1, 'V1', 'Car');
+    const before = s.getState();
+    const cases = [
+      [0, 'X1', 'Car', 'Invalid lane. Vehicle was not added.'],
+      [5, 'X1', 'Car', 'Invalid lane. Vehicle was not added.'],
+      ['-1', 'X1', 'Car', 'Invalid lane. Vehicle was not added.'],
+      ['abc', 'X1', 'Car', 'Invalid lane. Vehicle was not added.'],
+      ['1.5', 'X1', 'Car', 'Invalid lane. Vehicle was not added.'],
+      ['', 'X1', 'Car', 'Invalid lane. Vehicle was not added.'],
+      [1, '', 'Car', 'Vehicle ID cannot be empty. Vehicle was not added.'],
+      [1, '   \t', 'Car', 'Vehicle ID cannot be empty. Vehicle was not added.'],
+      [1, 'V1', 'Car', 'That vehicle ID has already been used. Vehicle was not added.'],
+      [2, ' V1 ', 'Bus', 'That vehicle ID has already been used. Vehicle was not added.'],
+      [1, 'X1', '', 'Vehicle type cannot be empty. Vehicle was not added.'],
+      [1, 'X1', '    ', 'Vehicle type cannot be empty. Vehicle was not added.'],
+      [1, 'ABCDEFGHIJKLM', 'Car', 'Vehicle ID must be 12 characters or fewer. Vehicle was not added.'],
+      [1, 'X1', 'A'.repeat(21), 'Vehicle type must be 20 characters or fewer. Vehicle was not added.'],
+    ];
+    let wrong = [];
+    for (const [l, id, ty, want] of cases) {
+      const r = s.addVehicle(l, id, ty);
+      if (r.ok || r.message !== want) wrong.push(`${JSON.stringify([l, id, ty])} → "${r.message}"`);
+    }
+    a(!wrong.length, wrong.join('; '));
+    a(s.getState() === before, 'no vehicle created and no queue modified');
+    a(s.addVehicle(1, 'ABCDEFGHIJKL', 'A'.repeat(20)).ok, 'exactly 12 / 20 characters accepted');
+    // The real form: blank ID/type must show the error (no auto-fill).
+    const keep = [$('vid').value, $('vtype').value], liveBefore = sim.getState();
+    $('vid').value = '   '; $('vtype').value = 'Car';
+    $('addForm').requestSubmit();
+    const m1 = $('msg').textContent;
+    $('vid').value = 'ZZ-FORM-TEST'; $('vtype').value = '';
+    $('addForm').requestSubmit();
+    const m2 = $('msg').textContent;
+    [$('vid').value, $('vtype').value] = keep;
+    a(m1 === 'Vehicle ID cannot be empty. Vehicle was not added.', `form blank ID → "${m1}"`);
+    a(m2 === 'Vehicle type cannot be empty. Vehicle was not added.', `form blank type → "${m2}"`);
+    a(sim.getState() === liveBefore, 'form rejections left the live simulation unchanged');
+    showMsg('', '');
+    return `${cases.length} invalid inputs rejected with exact messages; form does not auto-fill blanks.`;
+  }],
+  ['TC-12', 'SO1', 'Mixed valid/invalid sequence equals valid-only run', a => {
+    const mixed = new SimulationController(), ref = new SimulationController();
+    const valid = [['add', 1, 'M1', 'Car'], ['add', 3, 'M2', 'Bus'], ['tick'], ['add', 1, 'M3', 'Bike'], ['tick'], ['tick'],
+      ['add', 2, 'M4', 'Truck'], ['tick'], ['tick'], ['add', 4, 'M5', 'Car'], ['tick'], ['tick'], ['tick'], ['tick'], ['tick']];
+    const noise = [() => mixed.addVehicle(9, 'BAD', 'Car'), () => mixed.addVehicle(1, 'M1', 'Car'), () => mixed.addVehicle(2, '  ', 'Car'),
+      () => mixed.addVehicle(2, 'Q', ''), () => mixed.queues.dequeue(-1), () => mixed.vehicles.moveVehicle(2, 'RED'),
+      () => mixed.queues.enqueue(7, { id: 'Y', type: 'Car', arrivalTick: 0 }), () => mixed.addVehicle('x', 'Q2', 'Car')];
+    const apply = (s, op) => op[0] === 'add' ? s.addVehicle(op[1], op[2], op[3]) : s.advance();
+    valid.forEach((op, i) => {
+      apply(ref, op);
+      noise[i % noise.length]();
+      apply(mixed, op);
+      noise[(i + 3) % noise.length]();
+    });
+    a(mixed.getState() === ref.getState(), 'queues, signals, tick and statistics identical to valid-only run');
+    a(mixed.checkIntegrity().ok && ref.checkIntegrity().ok, 'added = processed + waiting in both');
+    return `${valid.length} valid ops interleaved with ${valid.length * 2} invalid ops; final state identical.`;
+  }],
+];
+
+function runSelfTests() {
+  const body = $('testBody');
+  body.innerHTML = '';
+  let pass = 0;
+  for (const [id, reqs, title, fn] of TESTS) {
+    const fails = [];
+    let detail = '';
+    try { detail = fn((cond, what) => { if (!cond) fails.push(what); }) || ''; }
+    catch (e) { fails.push('threw: ' + e.message); }
+    const ok = fails.length === 0;
+    if (ok) pass++;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="id">${id}</td><td class="req">${reqs}</td><td>${esc(title)}</td>
+      <td><span class="pill res-${ok ? 'PASS' : 'FAIL'}">${ok ? 'PASS' : 'FAIL'}</span></td>
+      <td class="det">${esc(ok ? detail : 'Failed: ' + fails.join('; '))}</td>`;
+    body.appendChild(tr);
+  }
+  const sum = $('testSum');
+  sum.textContent = `${pass}/${TESTS.length} passed`;
+  sum.style.color = pass === TESTS.length ? 'var(--low-fg)' : 'var(--high-fg)';
+  window.tmsTestResults = { pass, total: TESTS.length };
+  return window.tmsTestResults;
+}
+$('btnTests').onclick = runSelfTests;
+
+// ---- Start ----
+buildStatic(); buildLanes(); newSim();
+log('Traffic Management System (Simulation) started. North lane is GREEN.', 'sig');
+render();
+window.tms = { get sim() { return sim; }, runSelfTests };
+if (new URLSearchParams(location.search).has('test')) {
+  runSelfTests();
+  $('testCard').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
